@@ -7,45 +7,45 @@ import copy
 d = 30  # número de dimensões
 m = 1000  # número de iterações
 n = 50  # tamanho da população
-mpap = 0.25
+top = 3  # quantos vagalumes com as maiores luminosidades serão considerados
 gama = 1  # coeficiente de absorção da luz
 
 popu = np.empty([n, d])
 
-inf = -100
-sup = 100
 
 # Sphere function
-def brightness(x):
-    sum = 0
-    for i in range(0, d):  # para cada dimensão
-        sum = sum + (x[i] ** 2)
-
-    return -sum
-
-# Rosenbrock function
 # def brightness(x):
 #     sum = 0
+#     for i in range(0, d):  # para cada dimensão
+#         sum = sum + (x[i] ** 2)
+#
+#     return -sum
+#
+# Rosenbrock function
+# def brightness(x):
+#     suma = 0
 #     for i in range(0, d - 1):
 #         xi = x[i]
 #         xnext = x[i + 1]
-#         sum = sum + (100 * (xnext - xi ** 2) ** 2 + (xi - 1) ** 2)
-#     return -sum
+#         suma = suma + (100 * (xnext - xi ** 2) ** 2 + (xi - 1) ** 2)
+#     return -suma
 #
-# #Ackley
-# def brightness(x):
-#     sum01 = 0
-#     sum02 = 0
-#
-#     for i in range(0, d):  # para cada dimensão
-#         sum01 = sum01 + (x[i] ** 2)
-#         sum02 = sum02 + math.cos(2 * math.pi)
-#
-#     term01 = -20 * math.exp(-0.2 * (sum01 / d) ** (1 / 2))
-#     term02 = -1 * math.exp(sum02/d)
-#
-#     return -round((term01 + term02 + 20 + math.exp(1)), 5)
-# #Griewank
+# Ackley
+def brightness(x):
+    sum01 = 0
+    sum02 = 0
+
+    for i in range(0, d):  # para cada dimensão
+        sum01 = sum01 + (x[i] ** 2)
+        sum02 = sum02 + math.cos(2 * math.pi)
+
+    term01 = -20 * math.exp(-0.2 * (sum01 / d) ** (1 / 2))
+    term02 = -1 * math.exp(sum02 / d)
+
+    return -round((term01 + term02 + 20 + math.exp(1)), 5)
+
+
+# Griewank
 # def brightness(x):
 #     sum01 = 0
 #     produ = 1
@@ -57,14 +57,16 @@ def brightness(x):
 
 
 media = 0
-vezes = 10
+mediai = 0
+vezes = 50
+iatual = np.zeros([vezes])
 melatual = np.empty([vezes])  # mel é melhor, no mel atual cada dimensão guarda o melhor resultado daquela iteração
 mel = 1000000
 start_time = time.time()
 
 for execu in range(vezes):
-    inf = -100
-    sup = 100
+    inf = -32
+    sup = 32
     conj = {}
     for i in range(0, n):  # cada vagalume
         for j in range(0, d):  # tem d dimensões
@@ -110,10 +112,11 @@ for execu in range(vezes):
         conjaux = copy.deepcopy(conj)
         ordenadoaux = sorted(list(conjaux.keys()))
         for i in range(0, n):  # qtd de vagalumes
+            novos = {}
             ordenado = sorted(list(conj.keys()))
             menorC = ordenado[i]
             menor = conj[menorC]
-            for j in range(n - 5, n):
+            for j in range(n - top, n):  # os TOP vagalumes
                 if ordenado[i] == ordenadoaux[j]:
                     continue
                 else:
@@ -126,28 +129,35 @@ for execu in range(vezes):
                     r = r + (menor[p] - maior[p]) ** 2
                     ab[p] = maior[p] - menor[p]
                 r = r ** (1 / 2)
-                beta = 1 + gama * r ** 2
+                beta = 1 + gama * r ** (1 / 2)
                 for p in range(0, d):
-                    novo[p] = menor[p] + (1 / (ab[p] * beta))
-                    if novo[p] < inf or novo[p] > sup:
-                        novo[p] = random.uniform(inf, sup)
+                    novo[p] = round(menor[p] + (1 / (ab[p] * beta)), 5)
+                    # Isso aqui embaixo melhora muito, mas talvez seja trapaça com a ideia original:
+                    # if novo[p] < inf or novo[p] > sup:
+                    #     novo[p] = round(random.uniform(inf, sup), 5)
 
                 ordenado = sorted(list(conj.keys()))
-                menorC = ordenado[i]
-                menor = conj[menorC]
+                menorC = min(ordenado)
+
                 luminosidaden = brightness(novo)
-                if luminosidaden > menorC:
-                    if luminosidaden not in conj.keys():
-                        conj.pop(menorC)
-                        conj[luminosidaden] = novo
+                novos[luminosidaden] = novo
+            provavel = max(list(novos.keys()))
+            if provavel > menorC:
+                if provavel not in conj.keys():
+                    conj.pop(menorC)
+                    conj[provavel] = novos[provavel]
 
         maiorD = (max(list(conj.keys())))
         if maiorD > melhorChave:
             melhorChave = maiorD
             melhoresValores = conj[maiorD]
+            if maiorD == 0:
+                print(f"yeah, {k + 1}")
+                mediai += 1
+                iatual[execu] = k + 1
+                break
 
-        if maiorD == 0:
-            break
+        mediai = mediai + 1
 
     melatual[execu] = -1 * melhorChave
     media = media + melatual[execu]
@@ -158,22 +168,29 @@ for execu in range(vezes):
     print(f"melhor solução da {execu + 1}º execução: {melhoresValores}")
     print(f"{time.time() - start_time} segundos")
 
-
-
 print(f"\n\n--- tempo médio: {(time.time() - start_time) / vezes} seconds")
 media = media / vezes
+mediai = mediai / vezes
 
 variancia = 0
 variancia02 = 0
 desvioabsolutomedio = 0
-desvioabsolutomedio02 = 0
+
+for execu in range(vezes):
+    if iatual[execu] == 0:
+        iatual[execu] = m
 
 for execu in range(vezes):
     variancia = variancia + (melatual[execu] - media) ** 2
+    variancia02 = variancia02 + (iatual[execu] - mediai) ** 2
     desvioabsolutomedio = desvioabsolutomedio + abs(melatual[execu] - media)
 
 desvio = (variancia / vezes) ** (1 / 2)
 desvioabsolutomedio = desvioabsolutomedio / vezes
+desvio02 = (variancia02 / vezes) ** (1 / 2)  # desvio padrão da quantidade de iterações
+
+print(f"\nmédia iterações: {mediai}")
+print(f"Desvio Padrão da quantidade de iterações: {desvio02}")
 
 print(f"\nmelhor de todas execuções: {mel}")
 print(f"média: {media}")
